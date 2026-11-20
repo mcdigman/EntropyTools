@@ -63,14 +63,14 @@ def _nn_corrected_log_distance(sample_test: NDArray[np.float64], samples_compare
     logd_nn = np.log(dist_sq_min)
 
     # allow for up to a certain number of identical points to be ignored with no correction factor
-    repeat_count = max(repeat_count - identical_ignore, 0)
+    repeat_adjust = max(repeat_count - identical_ignore, 0)
 
     # correction factor to try to heuristically reduce bias caused by exact duplicates
     # possibly necessary because we are using the nearest non-identical neighbor
     # correction factor is larger the more times the point was duplicated
     # based on the assumption that duplicates are at distances randomly distributed
     # within an n-dimensional ball out to radius of the nearest non-identical neighbor
-    duplicate_correction = -1 / n_par * np.log(repeat_count + 1)
+    duplicate_correction = -1 / n_par * np.log(repeat_adjust + 1)
 
     # add the contribution and the correction factor
     return logd_nn - duplicate_correction
@@ -207,7 +207,7 @@ def _entropy_shift_factor(n_par: int, n_samp: int) -> float:
     """
     half_n_par = n_par / 2
     logc1 = half_n_par * np.log(np.pi) - scipy.special.loggamma(half_n_par + 1)
-    sample_shift = np.log(n_samp - 1)
+    sample_shift = np.log(n_samp)
     return sample_shift + logc1 + np.euler_gamma
 
 
@@ -299,7 +299,7 @@ def entropy_nn1(samples: NDArray[np.float64], *, identical_ignore: int = 1) -> f
     assert n_par > 0
     assert n_samp >= 2
 
-    shift_factor = _entropy_shift_factor(n_par, n_samp)
+    shift_factor = _entropy_shift_factor(n_par, n_samp - 1)
     entropy_base = _entropy_nn1_helper(samples, identical_ignore)
 
     return entropy_base + shift_factor
