@@ -7,17 +7,17 @@ import scipy.special
 from numba import njit, prange
 from numpy.typing import NDArray
 
-_DIGAMMA_SMALL = scipy.special.digamma(np.arange(0, 100000)) + np.euler_gamma
+_N_DIGAMMA_SMALL = 100000
+_DIGAMMA_SMALL = scipy.special.digamma(np.arange(0, _N_DIGAMMA_SMALL)) + np.euler_gamma
 
 
 @njit(fastmath={'nsz','arcp','contract','afn','reassoc'})
-def _nn_corrected_log_distance(sample_test: NDArray[np.float64], samples_compare: NDArray[np.float64], identical_ignore: int, duplicate_mode: Literal[0, 1], log_mode: Literal['geo', 'log']) -> np.float64:
+def _nn_corrected_log_distance(sample_test: NDArray[np.float64], samples_compare: NDArray[np.float64], duplicate_mode: Literal[0, 1], log_mode: Literal['geo', 'log']) -> np.float64:
     """
     Compute the log distance from a sample to its nearest non-identical neighbor, with duplicate correction.
 
     For a given sample, this function finds the squared Euclidean distance to the nearest non-identical
-    neighbor in the provided set of samples. If multiple identical points are present, a correction factor
-    is applied to reduce bias, allowing up to `identical_ignore` exact duplicates to be ignored without correction.
+    neighbor in the provided set of samples.
 
     Parameters
     ----------
@@ -25,8 +25,6 @@ def _nn_corrected_log_distance(sample_test: NDArray[np.float64], samples_compare
         The sample for which the nearest neighbor distance is computed.
     samples_compare : numpy.ndarray of shape (n_samples, n_parameters)
         Array of samples among which the nearest non-identical neighbor is searched.
-    identical_ignore : int
-        Number of exact duplicates to ignore before applying the correction factor.
     duplicate_mode : Literal[0, 1]
         Mode selector for handling duplicates
 
@@ -73,13 +71,13 @@ def _nn_corrected_log_distance(sample_test: NDArray[np.float64], samples_compare
     logd_nn = np.log(dist_sq_min)
 
     if duplicate_mode == 0:
-        if log_mode == 'geo' and repeat_count_nearest < _DIGAMMA_SMALL.size:
+        if log_mode == 'geo' and repeat_count_nearest < _N_DIGAMMA_SMALL:
             log_correction = _DIGAMMA_SMALL[repeat_count_nearest] - np.log(n_samp - present_count) + np.log(n_samp - 1)
         else:
             log_correction = np.log(repeat_count_nearest) - np.log(n_samp - present_count) + np.log(n_samp - 1)
     else:
         # allow for up to a certain number of identical points to be ignored with no correction factor
-        repeat_adjust = repeat_count_nearest + max(present_count - identical_ignore, 0)
+        repeat_adjust = repeat_count_nearest + max(present_count - 1, 0)
 
         # correction factor to try to heuristically reduce bias caused by exact duplicates
         # possibly necessary because we are using the nearest non-identical neighbor
@@ -96,7 +94,7 @@ def _nn_corrected_log_distance(sample_test: NDArray[np.float64], samples_compare
 
 
 @njit(parallel=True, fastmath=True)
-def _entropy_nn1_helper(samples: NDArray[np.float64], identical_ignore: int, log_mode: Literal['geo', 'log']) -> float:
+def _entropy_nn1_helper(samples: NDArray[np.float64], log_mode: Literal['geo', 'log']) -> float:
     """
     Estimate the differential entropy of IID samples using the one-sample nearest neighbor estimator.
 
@@ -111,10 +109,6 @@ def _entropy_nn1_helper(samples: NDArray[np.float64], identical_ignore: int, log
     samples : numpy.ndarray of shape (n_samples, n_parameters)
         Array of IID samples drawn from the target distribution. Each row corresponds
         to a sample, and each column to a parameter dimension.
-    identical_ignore : int
-        Number of exact duplicate samples to ignore before applying a correction factor
-        for bias due to identical values. Allows up to `identical_ignore` duplicates
-        to be present without correction.
     log_mode: Literal['geo', 'log']
         Mode selector for log approximation
 
@@ -127,12 +121,9 @@ def _entropy_nn1_helper(samples: NDArray[np.float64], identical_ignore: int, log
     -----
     The estimator is based on the average log-distance to the nearest neighbor in the sample set.
     The returned value does not include the shift factor correction for bias; see `_entropy_shift_factor`.
-    The `identical_ignore` argument controls how many exact duplicates are ignored before a bias correction
-    is applied, which helps mitigate the effect of repeated samples on the entropy estimate.
     It should be at least 1 for nn1, because the nearest neighbor of a sample is itself in the one-sample case.
     """
     assert len(samples.shape) == 2
-    assert identical_ignore > 0
     assert log_mode in ('geo', 'log')
 
     n_par = samples.shape[1]
@@ -145,13 +136,13 @@ def _entropy_nn1_helper(samples: NDArray[np.float64], identical_ignore: int, log
     for itrn2 in prange(n_samp):
         # find the distance to the nearest neighbor to this sample
         sample2 = samples[itrn2, :]
-        logd_tot += _nn_corrected_log_distance(sample2, samples, identical_ignore, 0, log_mode)
+        logd_tot += _nn_corrected_log_distance(sample2, samples, 0, log_mode)
 
     return n_par / n_samp / 2 * logd_tot
 
 
 @njit(parallel=True, fastmath=True)
-def _entropy_nn2_helper(samples_compare: NDArray[np.float64], samples_test: NDArray[np.float64], identical_ignore: int, log_mode: Literal['geo', 'log']) -> float:
+def _entropy_nn2_helper(samples_compare: NDArray[np.float64], samples_test: NDArray[np.float64], log_mode: Literal['geo', 'log']) -> float:
     """
     Estimate the differential entropy of a test sample set using the two-sample nearest neighbor estimator.
 
@@ -162,15 +153,11 @@ def _entropy_nn2_helper(samples_compare: NDArray[np.float64], samples_test: NDAr
     Parameters
     ----------
     samples_compare : numpy.ndarray of shape (n_samples, n_parameters)
-        Reference set of IID samples drawn from the target distribution. Exact duplicates of points in both samples_compare
-        from samples_test are handled using the `identical_ignore` parameter.
+        Reference set of IID samples drawn from the target distribution. 
         Duplicates within samples_compare may bias the estimate.
     samples_test : numpy.ndarray of shape (n_samples, n_parameters)
         Test set of samples for which the entropy is estimated. Duplicates within this set are allowed
         and require no special handling, although excessive duplicates may bias the estimate.
-    identical_ignore : int
-        Number of exact duplicate samples in `samples_compare` to ignore before applying a correction factor
-        for bias due to identical values. This does not affect duplicates in `samples_test`.
     log_mode: Literal['geo', 'log']
         Mode selector for log approximation
 
@@ -182,14 +169,12 @@ def _entropy_nn2_helper(samples_compare: NDArray[np.float64], samples_test: NDAr
     Notes
     -----
     The estimator is based on the average log-distance from each sample in `samples_test` to its nearest
-    neighbor in `samples_compare`. The `identical_ignore` argument only affects how duplicates in `samples_compare`
-    are handled; duplicates in `samples_test` are permitted and do not require correction.
+    neighbor in `samples_compare`. 
     The returned value does not include the shift factor correction for bias; see `_entropy_shift_factor`.
     """
     assert len(samples_compare.shape) == 2
     assert len(samples_test.shape) == 2
     assert samples_compare.shape == samples_test.shape
-    assert identical_ignore > -1
     assert log_mode in ('geo', 'log')
 
     n_par = samples_compare.shape[1]
@@ -202,7 +187,7 @@ def _entropy_nn2_helper(samples_compare: NDArray[np.float64], samples_test: NDAr
     for itrn2 in prange(n_samp):
         # find the distance to the nearest neighbor to this sample
         sample2 = samples_test[itrn2, :]
-        logd_tot += _nn_corrected_log_distance(sample2, samples_compare, identical_ignore, 1, log_mode)
+        logd_tot += _nn_corrected_log_distance(sample2, samples_compare, 1, log_mode)
     return n_par / n_samp / 2 * logd_tot
 
 
@@ -239,7 +224,7 @@ def _entropy_shift_factor(n_par: int, n_samp: int) -> float:
     return sample_shift + logc1 + np.euler_gamma
 
 
-def entropy_nn2(samples_compare: NDArray[np.float64], samples_test: NDArray[np.float64], *, identical_ignore: int = 0, log_mode: Literal['geo', 'log']='geo') -> float:
+def entropy_nn2(samples_compare: NDArray[np.float64], samples_test: NDArray[np.float64], *, log_mode: Literal['geo', 'log']='geo') -> float:
     """
     Estimate the differential entropy of a test sample set using the two-sample nearest neighbor estimator.
 
@@ -250,15 +235,10 @@ def entropy_nn2(samples_compare: NDArray[np.float64], samples_test: NDArray[np.f
     Parameters
     ----------
     samples_compare : numpy.ndarray of shape (n_samples, n_parameters)
-        Reference set of IID samples drawn from the target distribution. Exact duplicates of points in both samples_compare
-        from samples_test are handled using the `identical_ignore` parameter.
-        Duplicates within samples_compare may bias the estimate.
+        Reference set of IID samples drawn from the target distribution.
     samples_test : numpy.ndarray of shape (n_samples, n_parameters)
         Test set of samples for which the entropy is estimated. Duplicates within this set are allowed
         and require no special handling, although excessive duplicates may bias the estimate.
-    identical_ignore : int
-        Number of exact duplicate samples in `samples_compare` to ignore before applying a correction factor
-        for bias due to identical values. This does not affect duplicates in `samples_test`.
     log_mode: Literal['geo', 'log']
         Mode selector for log approximation
 
@@ -270,13 +250,11 @@ def entropy_nn2(samples_compare: NDArray[np.float64], samples_test: NDArray[np.f
     Notes
     -----
     The estimator is based on the average log-distance from each sample in `samples_test` to its nearest
-    neighbor in `samples_compare`. The `identical_ignore` argument only affects how duplicates in `samples_compare`
-    are handled; duplicates in `samples_test` are permitted and do not require correction.
+    neighbor in `samples_compare`.
     """
     assert len(samples_compare.shape) == 2
     assert len(samples_test.shape) == 2
     assert samples_compare.shape == samples_test.shape
-    assert identical_ignore > -1
     assert log_mode in ('geo', 'log')
 
     n_par = samples_compare.shape[1]
@@ -287,10 +265,10 @@ def entropy_nn2(samples_compare: NDArray[np.float64], samples_test: NDArray[np.f
 
     shift_factor = _entropy_shift_factor(n_par, n_samp)
 
-    return _entropy_nn2_helper(samples_compare, samples_test, identical_ignore, log_mode) + shift_factor
+    return _entropy_nn2_helper(samples_compare, samples_test, log_mode) + shift_factor
 
 
-def entropy_nn1(samples: NDArray[np.float64], *, identical_ignore: int = 1, log_mode: Literal['geo', 'log']='geo') -> float:
+def entropy_nn1(samples: NDArray[np.float64], *, log_mode: Literal['geo', 'log']='geo') -> float:
     """
     Estimate the differential entropy of IID samples using the one-sample nearest neighbor estimator.
 
@@ -303,10 +281,6 @@ def entropy_nn1(samples: NDArray[np.float64], *, identical_ignore: int = 1, log_
     samples : numpy.ndarray of shape (n_samples, n_parameters)
         Array of IID samples drawn from the target distribution. Each row corresponds
         to a sample, and each column to a parameter dimension.
-    identical_ignore : int
-        Number of exact duplicate samples to ignore before applying a correction factor
-        for bias due to identical values. Allows up to `identical_ignore` duplicates
-        to be present without correction.
     log_mode: Literal['geo', 'log']
         Mode selector for log approximation
 
@@ -318,9 +292,6 @@ def entropy_nn1(samples: NDArray[np.float64], *, identical_ignore: int = 1, log_
     Notes
     -----
     The estimator is based on the average log-distance to the nearest neighbor in the sample set.
-    The `identical_ignore` argument controls how many exact duplicates are ignored before a bias correction
-    is applied, which helps mitigate the effect of repeated samples on the entropy estimate.
-    It should be at least 1 for nn1, because the nearest neighbor of a sample is itself in the one-sample case.
     """
     assert len(samples.shape) == 2
     assert log_mode in ('geo', 'log')
@@ -332,12 +303,12 @@ def entropy_nn1(samples: NDArray[np.float64], *, identical_ignore: int = 1, log_
     assert n_samp >= 2
 
     shift_factor = _entropy_shift_factor(n_par, n_samp - 1)
-    entropy_base = _entropy_nn1_helper(samples, identical_ignore, log_mode)
+    entropy_base = _entropy_nn1_helper(samples, log_mode)
 
     return entropy_base + shift_factor
 
 
-def kl_divergence_nn2(samples_compare: NDArray[np.float64], samples_test: NDArray[np.float64], *, identical_ignore: int = 0, log_mode: Literal['geo', 'log']='geo') -> tuple[float, float, float]:
+def kl_divergence_nn2(samples_compare: NDArray[np.float64], samples_test: NDArray[np.float64], *, log_mode: Literal['geo', 'log']='geo') -> tuple[float, float, float]:
     """
     Estimate the Kullback-Leibler (KL) divergence between two distributions using the two-sample nearest neighbor estimator.
 
@@ -352,9 +323,6 @@ def kl_divergence_nn2(samples_compare: NDArray[np.float64], samples_test: NDArra
         Reference set of IID samples drawn from the first distribution (e.g., posterior).
     samples_test : numpy.ndarray of shape (n_samples, n_parameters)
         Test set of IID samples drawn from the second distribution.
-    identical_ignore : int, optional
-        Number of exact duplicate samples in `samples_compare` to ignore before applying a correction factor
-        for bias due to identical values. This does not affect duplicates in `samples_test` unless they are also present in `samples_compare`.
     log_mode: Literal['geo', 'log']
         Mode selector for log approximation
 
@@ -375,10 +343,9 @@ def kl_divergence_nn2(samples_compare: NDArray[np.float64], samples_test: NDArra
     assert len(samples_compare.shape) == 2
     assert len(samples_test.shape) == 2
     assert samples_compare.shape == samples_test.shape
-    assert identical_ignore > -1
     assert log_mode in ('geo', 'log')
 
-    e1 = entropy_nn1(samples_test, identical_ignore=identical_ignore + 1, log_mode=log_mode)
-    e2 = entropy_nn2(samples_compare, samples_test, identical_ignore=identical_ignore, log_mode=log_mode)
+    e1 = entropy_nn1(samples_test, log_mode=log_mode)
+    e2 = entropy_nn2(samples_compare, samples_test, log_mode=log_mode)
     divergence_k = e2 - e1
     return divergence_k, e1, e2
