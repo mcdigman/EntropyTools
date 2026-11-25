@@ -6,15 +6,78 @@ readme = "README.md"
 authors = [
   { name="Matthew C. Digman", email="matthew.digman@vanderbilt.edu" }
 ]
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
-    "numpy",
-    "scipy",
-    "numba",
-    "pytest"
+    "numpy>=1.23.2",
+    "scipy>=1.9.3",
+    "numba>=0.57.0",
+    "pytest>=7.2.2",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
+]
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+    "coverage: minimal fast tests giving full line and branch coverage with NUMBA_DISABLE_JIT=1",
+]
+testpaths = ["tests"]
+
+[tool.mypy]
+exclude = ['^build/', '^\.venv/']
+
+[tool.pyright]
+pythonVersion = "3.11"
+reportMissingImports = "none"
+exclude = ["**/node_modules", "**/__pycache__", "**/.*", "build"]
+
+[tool.pyrefly]
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]
+project-excludes = []
+preset="strict"
+
+[[tool.pyrefly.sub-config]]
+matches = "tests/**" # Adjust to your test directory or "**/test_*.py"
+
+[tool.pyrefly.sub-config.errors]
+unannotated-parameter = "ignore"
+unannotated-return = "ignore"
+unannotated-attribute = "ignore"
+implicit-any = "ignore"
+
+[tool.pydoclint]
+# Docstring-signature linting for the numpy-style docstrings (run by
+# .github/workflows/docstrings.yml)
+style = "numpy"
+check-return-types = true
+check-class-attributes = true
+allow-init-docstring = true
+# pydoclint's built-in default only excludes \.git|\.tox, so a whole-tree run
+# (pydoclint .) descends into .venv/build.
+exclude = '\.git|\.tox|\.venv|\.eggs|_build|buck-out|build|dist|__pycache__|\.mypy_cache|\.pytest_cache|\.ruff_cache'
+
+[tool.setuptools.packages.find]
+include = ["EntropyTools*"]
