@@ -13,8 +13,30 @@ dependencies = [
     "numba",
     "pytest"
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.11"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+    "coverage: minimal fast tests giving full line and branch coverage with NUMBA_DISABLE_JIT=1",
+]
+
+[tool.pyrefly]
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]
+project-excludes = []
+preset="strict"
+
+[[tool.pyrefly.sub-config]]
+matches = "tests/**" # Adjust to your test directory or "**/test_*.py"
+
+[tool.pyrefly.sub-config.errors]
+unannotated-parameter = "ignore"
+unannotated-return = "ignore"
+unannotated-attribute = "ignore"
+implicit-any = "ignore"
