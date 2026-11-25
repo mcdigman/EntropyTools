@@ -1,0 +1,70 @@
+name: Type Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: typecheck-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.14"
+  MYPY_VERSION: "2.1.0"
+  PYRIGHT_VERSION: "1.1.410"
+
+permissions:
+  contents: read
+
+jobs:
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install project with typed extras
+        run: |
+          uv venv
+          uv pip install "." scipy-stubs
+
+      - name: Run mypy
+        run: >
+          uvx --from "mypy==${{ env.MYPY_VERSION }}" mypy
+          --python-executable .venv/bin/python
+          --explicit-package-bases
+          .
+
+  pyright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install project with typed extras
+        run: |
+          uv venv
+          uv pip install "." scipy-stubs
+
+      - name: Run pyright
+        run: >
+          uvx pyright@${{ env.PYRIGHT_VERSION }}
+          --pythonpath .venv/bin/python

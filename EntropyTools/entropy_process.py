@@ -23,16 +23,20 @@ def _nn_corrected_log_distance(sample_test: NDArray[np.float64], samples_compare
 
     Parameters
     ----------
-    sample_test : numpy.ndarray of shape (n_parameters,)
+    sample_test : NDArray[np.float64]
+        Array of shape (n_parameters,)
         The sample for which the nearest neighbor distance is computed.
-    samples_compare : numpy.ndarray of shape (n_samples, n_parameters)
+    samples_compare : NDArray[np.float64]
+        Array of shape (n_samples, n_parameters)
         Array of samples among which the nearest non-identical neighbor is searched.
     duplicate_mode : Literal[0, 1]
         Mode selector for handling duplicates: 0 for one-sample/self included, 1: two-sample
+    log_mode: Literal['geo', 'log']
+        Mode selector for log approximation correction of duplicates
 
     Returns
     -------
-    logd_nn_corr : float
+    logd_nn_corr : np.float64
         Logarithm of the squared distance to the nearest non-identical neighbor, corrected for duplicates.
 
     Notes
@@ -109,7 +113,8 @@ def _entropy_nn1_helper(samples: NDArray[np.float64], log_mode: Literal['geo', '
 
     Parameters
     ----------
-    samples : numpy.ndarray of shape (n_samples, n_parameters)
+    samples : NDArray[np.float64]
+        Array of shape (n_samples, n_parameters)
         Array of IID samples drawn from the target distribution. Each row corresponds
         to a sample, and each column to a parameter dimension.
     log_mode: Literal['geo', 'log']
@@ -154,9 +159,11 @@ def _entropy_nn2_helper(samples_compare: NDArray[np.float64], samples_test: NDAr
 
     Parameters
     ----------
-    samples_compare : numpy.ndarray of shape (n_samples, n_parameters)
+    samples_compare : NDArray[np.float64]
+        Array of shape (n_samples, n_parameters)
         Reference set of IID samples drawn from the target distribution.
-    samples_test : numpy.ndarray of shape (n_samples, n_parameters)
+    samples_test : NDArray[np.float64]
+        Array of shape (n_samples, n_parameters)
         Test set of samples for which the entropy is estimated.
     log_mode: Literal['geo', 'log']
         Mode selector for log approximation correction of duplicates
@@ -234,9 +241,11 @@ def entropy_nn2(samples_compare: NDArray[np.float64], samples_test: NDArray[np.f
 
     Parameters
     ----------
-    samples_compare : numpy.ndarray of shape (n_samples, n_parameters)
+    samples_compare : NDArray[np.float64]
+        Array of shape (n_samples, n_parameters)
         Reference set of IID samples drawn from the target distribution.
-    samples_test : numpy.ndarray of shape (n_samples, n_parameters)
+    samples_test : NDArray[np.float64]
+        Array of shape (n_samples, n_parameters)
         Test set of samples for which the entropy is estimated. Duplicates within this set are allowed
         and require no special handling, although excessive duplicates may bias the estimate.
     log_mode: Literal['geo', 'log']
@@ -278,7 +287,8 @@ def entropy_nn1(samples: NDArray[np.float64], *, log_mode: Literal['geo', 'log']
 
     Parameters
     ----------
-    samples : numpy.ndarray of shape (n_samples, n_parameters)
+    samples : NDArray[np.float64]
+        Array of shape (n_samples, n_parameters)
         Array of IID samples drawn from the target distribution. Each row corresponds
         to a sample, and each column to a parameter dimension.
     log_mode: Literal['geo', 'log']
@@ -319,9 +329,11 @@ def kl_divergence_nn2(samples_compare: NDArray[np.float64], samples_test: NDArra
 
     Parameters
     ----------
-    samples_compare : numpy.ndarray of shape (n_samples, n_parameters)
+    samples_compare : NDArray[np.float64]
+        Array of shape (n_samples, n_parameters)
         Reference set of (ideally) IID samples drawn from the comparison distribution (e.g., known true posterior or prior).
-    samples_test : numpy.ndarray of shape (n_samples, n_parameters)
+    samples_test : NDArray[np.float64]
+        Array of shape (n_samples, n_parameters)
         Test set of (ideally) IID samples drawn from the test distribution (e.g. sampled posterior or different posterior).
     log_mode: Literal['geo', 'log']
         Mode selector for log approximation correction of duplicates

@@ -40,3 +40,14 @@ unannotated-parameter = "ignore"
 unannotated-return = "ignore"
 unannotated-attribute = "ignore"
 implicit-any = "ignore"
+
+[tool.pydoclint]
+# Docstring-signature linting for the numpy-style docstrings (run by
+# .github/workflows/docstrings.yml)
+style = "numpy"
+check-return-types = true
+check-class-attributes = true
+allow-init-docstring = true
+# pydoclint's built-in default only excludes \.git|\.tox, so a whole-tree run
+# (pydoclint .) descends into .venv/build.
+exclude = '\.git|\.tox|\.venv|\.eggs|_build|buck-out|build|dist|__pycache__|\.mypy_cache|\.pytest_cache|\.ruff_cache'
