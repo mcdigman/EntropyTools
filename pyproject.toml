@@ -6,7 +6,8 @@ readme = "README.md"
 authors = [
   { name="Matthew C. Digman", email="matthew.digman@vanderbilt.edu" }
 ]
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
     "numpy",
     "scipy",
@@ -14,15 +15,41 @@ dependencies = [
     "pytest"
 ]
 requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
+]
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 markers = [
     "coverage: minimal fast tests giving full line and branch coverage with NUMBA_DISABLE_JIT=1",
 ]
+testpaths = ["tests"]
+
+[tool.mypy]
+exclude = ['^build/', '^\.venv/']
+
+[tool.pyright]
+pythonVersion = "3.11"
+reportMissingImports = "none"
+exclude = ["**/node_modules", "**/__pycache__", "**/.*", "build"]
 
 [tool.pyrefly]
 project-includes = [
@@ -51,3 +78,6 @@ allow-init-docstring = true
 # pydoclint's built-in default only excludes \.git|\.tox, so a whole-tree run
 # (pydoclint .) descends into .venv/build.
 exclude = '\.git|\.tox|\.venv|\.eggs|_build|buck-out|build|dist|__pycache__|\.mypy_cache|\.pytest_cache|\.ruff_cache'
+
+[tool.setuptools.packages.find]
+include = ["EntropyTools*"]
